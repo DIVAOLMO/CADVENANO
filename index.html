@@ -1,0 +1,268 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<!-- ============================================================
+     ventes_volume.html — État Ventes · Volumétrie (Maison Cadiou)
+     ============================================================
+     Fichier autonome : aucune bibliothèque externe, aucune
+     interaction (adapté à un widget intégré / embedded).
+
+     TOUTES LES DONNÉES SONT DANS LE BLOC
+     "═══ DONNÉES DE DÉMONSTRATION ═══" en bas, dans le <script>.
+     Aucune date : on parle de périodes (P1 à P12, N / N-1).
+     ============================================================ -->
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Ventes · Volumétrie</title>
+<style>
+  :root {
+    /* Couleur du service (ventes = bleu) */
+    --accent: #185fa5;
+    --page-bg: #eef5fc;
+    --card-bg: #ffffff;
+    --card-border: rgba(0,0,0,0.12);
+    --text-primary: #1a1a18;
+    --text-muted: #6b6b66;
+    --ok: #2e6b30;  --ok-bg: #e6f4e7;
+    --ko: #a32d2d;  --ko-bg: #fcebeb;
+    --gap: 12px;
+  }
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+         background: var(--page-bg); color: var(--text-primary); font-size: 14px; line-height: 1.5; }
+  .wrap { max-width: 1400px; margin: 0 auto; padding: 1.25rem 1.5rem 1.5rem; }
+
+  /* En-tête */
+  .head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 1rem; }
+  .head-title { display: flex; align-items: center; gap: 10px; font-size: 17px; font-weight: 600; }
+  .head-title::before { content: ""; width: 4px; height: 22px; background: var(--accent); }
+  .head-title span { font-weight: 400; color: var(--text-muted); }
+  .badge { background: #e6f1fb; color: var(--accent); font-size: 11px; font-weight: 500; padding: 3px 8px; white-space: nowrap; }
+
+  /* Indicateurs */
+  .kpi-grid { display: grid; grid-template-columns: repeat(5, minmax(0,1fr)); gap: var(--gap); margin-bottom: var(--gap); }
+  .kpi { background: var(--card-bg); border: 0.5px solid var(--card-border); padding: 1rem 1.1rem; }
+  .kpi-label { font-size: 12px; color: var(--text-muted); font-weight: 500; letter-spacing: .04em; text-transform: uppercase; min-height: 34px; }
+  .kpi-value { font-size: 27px; font-weight: 500; line-height: 1.1; color: var(--accent); margin-top: 4px; }
+  .kpi-detail { font-size: 12px; color: var(--text-muted); margin-top: 6px; }
+  .up { color: var(--ok); font-weight: 600; } .down { color: var(--ko); font-weight: 600; }
+
+  /* Panneaux */
+  .card { background: var(--card-bg); border: 0.5px solid var(--card-border); padding: 1rem 1.15rem; min-width: 0; }
+  .card-head { display: flex; justify-content: space-between; align-items: flex-start; gap: 8px; }
+  .card-title { font-size: 15px; font-weight: 500; }
+  .card-sub { font-size: 12px; color: var(--text-muted); margin-bottom: .6rem; }
+  .row3 { display: grid; grid-template-columns: minmax(0,1fr) minmax(0,1.05fr) minmax(0,1.3fr); gap: var(--gap); margin-top: var(--gap); }
+  svg text { font-family: inherit; }
+
+  /* Anneau + légende */
+  .donut-wrap { display: flex; align-items: center; gap: .8rem; }
+  .donut-wrap svg { width: 92px; height: 92px; flex-shrink: 0; }
+  .legend { flex: 1; min-width: 0; }
+  .lg { display: flex; align-items: center; gap: 8px; padding: 5px 0; border-bottom: 0.5px solid rgba(0,0,0,.07); font-size: 12.5px; }
+  .lg:last-child { border-bottom: none; }
+  .dot { width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0; }
+  .lg-name { flex: 1; line-height: 1.25; }
+  .lg-pct { font-weight: 600; min-width: 38px; text-align: right; }
+
+  /* Barres horizontales */
+  .hb { display: grid; grid-template-columns: 112px 1fr auto; align-items: center; gap: 8px; font-size: 12.5px; padding: 4px 0; }
+  .hb-name { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .hb-track { height: 10px; background: #f0f0f0; }
+  .hb-fill { height: 100%; }
+  .hb-val { text-align: right; font-weight: 600; white-space: nowrap; }
+  .hb-val small { font-weight: 400; color: var(--text-muted); }
+
+  /* Tableau */
+  table { width: 100%; border-collapse: collapse; font-size: 12.5px; table-layout: fixed; }
+  th { text-align: left; font-size: 11px; font-weight: 500; color: var(--text-muted); text-transform: uppercase; letter-spacing: .03em; padding: 0 4px 5px; border-bottom: 0.5px solid var(--card-border); }
+  td { padding: 4px; border-bottom: 0.5px solid rgba(0,0,0,.06); white-space: nowrap; }
+  td.r, th.r { text-align: right; }
+  td.rank { color: var(--text-muted); width: 18px; }
+  td.name { overflow: hidden; text-overflow: ellipsis; }
+
+  @media (max-width: 1000px) {
+    .kpi-grid { grid-template-columns: repeat(3, minmax(0,1fr)); }
+    .row3 { grid-template-columns: 1fr; }
+  }
+  @media (max-width: 560px) { .kpi-grid { grid-template-columns: 1fr 1fr; } }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="head">
+    <div class="head-title">Ventes <span>· Volumétrie</span></div>
+    <span class="badge" id="periode"></span>
+  </div>
+
+  <div class="kpi-grid" id="kpis"></div>
+
+  <div class="card">
+    <div class="card-head"><div><div class="card-title" id="evo-title"></div><div class="card-sub" id="evo-sub"></div></div><span class="badge" id="evo-badge"></span></div>
+    <div id="evo"></div>
+  </div>
+
+  <div class="row3">
+    <div class="card"><div class="card-title">CA par famille</div><div class="card-sub">Part du CA cumulé</div><div id="familles"></div></div>
+    <div class="card"><div class="card-title">CA par secteur géographique</div><div class="card-sub">CA cumulé en k€ et part</div><div id="secteurs"></div></div>
+    <div class="card"><div class="card-title">Top 10 clients</div><div class="card-sub">CA cumulé et évolution vs N-1</div><div id="top"></div></div>
+  </div>
+</div>
+
+<script>
+/* ================================================================
+   ═══════════════ DONNÉES DE DÉMONSTRATION ═══════════════════════
+   ================================================================
+   Modifiez ces valeurs avant chaque démonstration.
+   Pas de dates : P1 à P12 = 12 périodes glissantes, P12 = période en cours.
+   ================================================================ */
+
+const PERIODE = "Période en cours · P12";
+
+/* ---- INDICATEURS (5) --------------------------------------------
+   label  → libellé
+   valeur → valeur affichée (texte libre)
+   evol   → évolution en % vs N-1 (nombre, signe géré) ou null
+   detail → texte complémentaire sous la valeur
+----------------------------------------------------------------- */
+const KPI_DATA = [
+  { label: "CA de la période",       valeur: "7,6 M€", evol: 6.0,  detail: "vs N-1" },
+  { label: "CA cumulé",              valeur: "120,1 M€", evol: 6.1,  detail: "12 périodes glissantes" },
+  { label: "Marge brute",            valeur: "34,8 %",  evol: null, detail: "+0,9 pt vs N-1" },
+  { label: "Commandes de la période",valeur: "3 180",     evol: 4.2,  detail: "vs N-1" },
+  { label: "Clients actifs",         valeur: "1 860",     evol: 2.5,  detail: "vs N-1" },
+];
+
+/* ---- CA PAR PÉRIODE (k€) : N et N-1, 12 valeurs chacune --------- */
+const EVOLUTION = {
+  titre: "CA par période",
+  sousTitre: "N comparé à N-1, en k€",
+  periodes: ["P1","P2","P3","P4","P5","P6","P7","P8","P9","P10","P11","P12"],
+  N:   [8060, 8500, 9720, 10940, 12170, 11590, 10660, 8930, 10440, 11230, 10220, 7630],
+  N_1: [7630, 7990, 9140, 10300, 11450, 10940, 10080, 8420, 9790, 10580, 9650, 7200],
+};
+
+/* ---- CA PAR FAMILLE (% du CA cumulé, total ≈ 100) --------------- */
+const FAMILLES = [
+  { nom: "Portails battants",    pct: 34 },
+  { nom: "Portails coulissants", pct: 22 },
+  { nom: "Portillons",           pct: 16 },
+  { nom: "Clôtures",             pct: 15 },
+  { nom: "Garde-corps",          pct: 8  },
+  { nom: "Accessoires",          pct: 5  },
+];
+
+/* ---- CA PAR SECTEUR GÉOGRAPHIQUE (k€ cumulés) ------------------- */
+const SECTEURS = [
+  { nom: "Bretagne",           ca: 42050 },
+  { nom: "Pays de la Loire",   ca: 22820 },
+  { nom: "Normandie",          ca: 15620 },
+  { nom: "Île-de-France",      ca: 13180 },
+  { nom: "Nouvelle-Aquitaine", ca: 10800 },
+  { nom: "Export",             ca: 9650 },
+  { nom: "Autres régions",     ca: 5970  },
+];
+
+/* ---- TOP 10 CLIENTS (k€ cumulés, évolution % vs N-1) ------------ */
+const TOP_CLIENTS = [
+  { nom: "BRICOMAX centrale",  type: "GSB",          ca: 16850, evol: 8  },
+  { nom: "JARDIBRICO",         type: "GSB",          ca: 13390, evol: 3  },
+  { nom: "BATIMAN",            type: "Négoce",       ca: 10150, evol: 11 },
+  { nom: "BRICO OUEST",        type: "GSB",          ca: 8060, evol: -2 },
+  { nom: "NÉGOCE ATLANTIQUE",  type: "Négoce",       ca: 7060,  evol: 6  },
+  { nom: "DISTRIMAT 35",       type: "Négoce",       ca: 5470,  evol: 14 },
+  { nom: "CLÔTURES SERVICES",  type: "Installateur", ca: 4610,  evol: 9  },
+  { nom: "HOME BUILD UK",      type: "Export",       ca: 3740,  evol: 21 },
+  { nom: "BRICOLAND",          type: "GSB",          ca: 3380,  evol: -5 },
+  { nom: "ART'MÉTAL POSE",     type: "Installateur", ca: 2810,  evol: 4  },
+];
+
+/* ================================================================
+   ═══════════════ COULEURS (optionnel) ═══════════════════════════
+   ================================================================ */
+const RAMP = ["#0c447c", "#185fa5", "#378add", "#85b7eb", "#b5d4f4", "#b4b2a9"];
+const COULEUR_N = "#185fa5", COULEUR_N1 = "#b5d4f4";
+
+
+/* ================================================================
+   ═══════════════ MOTEUR (aucune bibliothèque, statique) ═════════
+   ================================================================ */
+const fmt = n => Number(n).toLocaleString("fr-FR");
+const pctFmt = n => (n > 0 ? "+" : "") + String(n).replace(".", ",") + " %";
+const evolSpan = e => e == null ? "" : `<span class="${e < 0 ? "down" : "up"}">${pctFmt(e)}</span> `;
+const esc = s => String(s).replace(/&/g,"&amp;").replace(/</g,"&lt;");
+
+function niceMax(v) {
+  const p = Math.pow(10, Math.floor(Math.log10(v))), m = v / p;
+  return (m <= 1 ? 1 : m <= 1.5 ? 1.5 : m <= 2 ? 2 : m <= 2.5 ? 2.5 : m <= 5 ? 5 : 10) * p;
+}
+
+/* Barres verticales groupées (SVG) */
+function barresGroupees(el, labels, series, unite) {
+  const W = 1000, H = 230, L = 52, R = 10, T = 26, B = 24;
+  const max = niceMax(Math.max(...series.flatMap(s => s.valeurs)));
+  const iw = W - L - R, ih = H - T - B, gw = iw / labels.length, bw = Math.min(26, (gw * 0.7) / series.length);
+  let s = `<svg viewBox="0 0 ${W} ${H}" width="100%" role="img" aria-label="Histogramme par période">`;
+  for (let i = 0; i <= 4; i++) {
+    const y = T + ih - (ih * i) / 4, v = (max * i) / 4;
+    s += `<line x1="${L}" x2="${W - R}" y1="${y}" y2="${y}" stroke="#0000000f"/>`;
+    s += `<text x="${L - 8}" y="${y + 4}" font-size="11" fill="#6b6b66" text-anchor="end">${fmt(v)}${unite}</text>`;
+  }
+  labels.forEach((lab, i) => {
+    const gx = L + gw * i + (gw - bw * series.length - 4 * (series.length - 1)) / 2;
+    series.forEach((se, j) => {
+      const v = se.valeurs[i], h = (v / max) * ih, x = gx + j * (bw + 4);
+      s += `<rect x="${x}" y="${T + ih - h}" width="${bw}" height="${h}" fill="${se.couleur}"/>`;
+    });
+    s += `<text x="${L + gw * i + gw / 2}" y="${H - 6}" font-size="11.5" fill="#6b6b66" text-anchor="middle">${lab}</text>`;
+  });
+  let lx = W - R;
+  [...series].reverse().forEach(se => {
+    lx -= 70;
+    s += `<rect x="${lx}" y="4" width="11" height="11" fill="${se.couleur}"/><text x="${lx + 16}" y="14" font-size="12" fill="#1a1a18">${se.nom}</text>`;
+  });
+  el.innerHTML = s + "</svg>";
+}
+
+/* Anneau + légende */
+function anneau(el, items) {
+  const r = 48, c = 2 * Math.PI * r, tot = items.reduce((a, b) => a + b.pct, 0);
+  let off = 0, s = `<svg viewBox="0 0 120 120" role="img" aria-label="Répartition">`;
+  items.forEach((it, i) => {
+    const len = (it.pct / tot) * c;
+    s += `<circle cx="60" cy="60" r="${r}" fill="none" stroke="${RAMP[i % RAMP.length]}" stroke-width="20" stroke-dasharray="${len} ${c - len}" stroke-dashoffset="${-off}" transform="rotate(-90 60 60)"/>`;
+    off += len;
+  });
+  s += "</svg>";
+  const lg = items.map((it, i) => `<div class="lg"><span class="dot" style="background:${RAMP[i % RAMP.length]}"></span><span class="lg-name">${esc(it.nom)}</span><span class="lg-pct" style="color:${RAMP[Math.min(i, 2)]}">${it.pct} %</span></div>`).join("");
+  el.innerHTML = `<div class="donut-wrap">${s}<div class="legend">${lg}</div></div>`;
+}
+
+/* Barres horizontales */
+function barresH(el, items) {
+  const tot = items.reduce((a, b) => a + b.ca, 0), max = Math.max(...items.map(i => i.ca));
+  el.innerHTML = items.map((it, i) => `<div class="hb"><span class="hb-name">${esc(it.nom)}</span><div class="hb-track"><div class="hb-fill" style="width:${(it.ca / max) * 100}%;background:${RAMP[Math.min(i, 3)]}"></div></div><span class="hb-val">${fmt(it.ca)} k€ <small>${Math.round((it.ca / tot) * 100)} %</small></span></div>`).join("");
+}
+
+/* Tableau top clients */
+function tableTop(el, rows) {
+  el.innerHTML = `<table><colgroup><col style="width:22px"><col><col style="width:82px"><col style="width:62px"><col style="width:52px"></colgroup><tr><th></th><th>Client</th><th>Type</th><th class="r">CA k€</th><th class="r">Évol.</th></tr>` +
+    rows.map((r, i) => `<tr><td class="rank">${i + 1}</td><td class="name">${esc(r.nom)}</td><td style="color:#6b6b66">${esc(r.type)}</td><td class="r"><b>${fmt(r.ca)}</b></td><td class="r ${r.evol < 0 ? "down" : "up"}">${pctFmt(r.evol)}</td></tr>`).join("") + `</table>`;
+}
+
+/* Rendu */
+document.getElementById("periode").textContent = PERIODE;
+document.getElementById("kpis").innerHTML = KPI_DATA.map(k =>
+  `<div class="kpi"><div class="kpi-label">${esc(k.label)}</div><div class="kpi-value">${esc(k.valeur)}</div><div class="kpi-detail">${evolSpan(k.evol)}${esc(k.detail)}</div></div>`).join("");
+document.getElementById("evo-title").textContent = EVOLUTION.titre;
+document.getElementById("evo-sub").textContent = EVOLUTION.sousTitre;
+const sN = EVOLUTION.N.reduce((a, b) => a + b, 0), sN1 = EVOLUTION.N_1.reduce((a, b) => a + b, 0);
+document.getElementById("evo-badge").textContent = "Cumul N : " + fmt(sN) + " k€ · " + pctFmt(Math.round((sN / sN1 - 1) * 1000) / 10) + " vs N-1";
+barresGroupees(document.getElementById("evo"), EVOLUTION.periodes,
+  [{ nom: "N", valeurs: EVOLUTION.N, couleur: COULEUR_N }, { nom: "N-1", valeurs: EVOLUTION.N_1, couleur: COULEUR_N1 }], "");
+anneau(document.getElementById("familles"), FAMILLES);
+barresH(document.getElementById("secteurs"), SECTEURS);
+tableTop(document.getElementById("top"), TOP_CLIENTS);
+</script>
+</body>
+</html>
